@@ -46,9 +46,14 @@ async def update_status_channel(bot: discord.Client, guild: discord.Guild):
     if channel is None:
         return
 
-    async for msg in channel.history(limit=10):
-        if msg.author == bot.user:
-            await msg.delete()
+    try:
+        async for msg in channel.history(limit=10):
+            if msg.author == bot.user and msg.content.startswith("📋 СПИСОК УЧАСТНИКОВ"):
+                await msg.delete()
+    except discord.Forbidden:
+        print("⛔ Недостаточно прав на чтение истории. Проверь настройки канала.")
+        return
 
     text = await format_list(guild)
-    await channel.send(text)
+    await channel.send(f"📋 СПИСОК УЧАСТНИКОВ\n\n{text}")
+

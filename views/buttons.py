@@ -40,5 +40,10 @@ class CloseButton(discord.ui.Button):
             await interaction.response.send_message("⛔ Только администратор может закрыть меню.", ephemeral=True)
             return
 
-        await interaction.message.delete()
+        try:
+            await interaction.message.delete()
+        except discord.NotFound:
+            await interaction.response.send_message("Сообщение уже удалено или не найдено ❌", ephemeral=True)
+            return
+
         await interaction.response.send_message("Меню закрыто 🔒", ephemeral=True)
