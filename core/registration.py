@@ -1,8 +1,6 @@
-from core.utils import load_data, save_data, get_priority
+from core.utils import load_data, save_data, get_priority, update_registration_message, try_notify_full
 
-TEST_MODE = True
-
-async def handle_join(member):
+async def handle_join(member, bot):
     data = load_data()
     main = data["main_list"]
     extra = data["extra_list"]
@@ -17,19 +15,24 @@ async def handle_join(member):
     if len(main) < max_main:
         main.append(user_id)
         save_data(data)
+
+        if len(main) == max_main:
+            await try_notify_full(bot, member.guild)
+
         return "Вы добавлены в основной список ✅"
 
     weakest = None
     weakest_priority = 99
 
     for uid in main:
-        existing = await member.guild.fetch_member(int(uid))
-        existing_priority = get_priority(existing)
-
-        if user_priority > existing_priority:
-            if existing_priority < weakest_priority:
+        try:
+            existing = await member.guild.fetch_member(int(uid))
+            existing_priority = get_priority(existing)
+            if user_priority > existing_priority and existing_priority < weakest_priority:
                 weakest = uid
                 weakest_priority = existing_priority
+        except:
+            continue
 
     if weakest:
         main.remove(weakest)
