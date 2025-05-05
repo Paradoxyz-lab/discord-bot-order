@@ -2,6 +2,9 @@ import os
 import json
 import discord
 from data.roles import ROLE_PRIORITY
+from datetime import datetime
+import locale
+locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
 
 def load_data():
     with open("database/storage.json", "r") as f:
@@ -43,8 +46,7 @@ async def format_list(guild):
         f"**📥 Доп.слоты ({len(extra)}):**\n{mention_list(extra)}"
     )
 
-# Генерация embed-сообщения регистрации
-async def build_registration_embed(guild, author):
+async def build_registration_embed(guild, author, finished=False):
     data = load_data()
     main_ids = data["main_list"]
     title = data.get("title", "Мероприятие")
@@ -62,21 +64,25 @@ async def build_registration_embed(guild, author):
 
     sorted_members = sorted(members, key=lambda x: -x[0])
 
-    mentions = [
-        f"{member.mention} — **{role}**"
-        for _, role, member in sorted_members
-    ]
+    list_text = "\n".join(
+        f"{member.mention} — {role}" for _, role, member in sorted_members
+    ) if sorted_members else "_пусто_"
 
-    embed = discord.Embed(title=title, color=0x5865F2)
-    embed.add_field(name="Создал", value=author.mention, inline=True)
-    embed.add_field(name="Дата", value=date, inline=True)
-    embed.add_field(name="Роли", value="Без ограничений", inline=False)
+    header = f"🔴 ЗАВЕРШЕН 🔴\n{title}" if finished else title
+    embed = discord.Embed(title=header, color=0xFF9900)
+    info_block = (
+        f"Создал: {author.mention}\n"
+        f"Дата: {date}\n"
+        f"Роли: Без ограничений"
+    )
+    embed.add_field(name="\u200b", value=info_block, inline=False)
     embed.add_field(
         name=f"Участники ({len(main_ids)}/{max_main})",
-        value="\n".join(mentions) if mentions else "_пусто_",
+        value=list_text,
         inline=False
     )
     return embed
+
 
 async def update_registration_message(bot, guild, author):
     data = load_data()

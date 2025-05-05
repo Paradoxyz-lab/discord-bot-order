@@ -109,18 +109,31 @@ class FinishButton(discord.ui.Button):
             await interaction.response.send_message("⛔ Только админ может завершить сбор.", ephemeral=True)
             return
 
-        message_id = load_data().get("message_id")
-        channel_id = int(os.getenv("STATUS_CHANNEL_ID", 0))
-        channel = interaction.guild.get_channel(channel_id)
+        from core.utils import load_data, build_registration_embed
+        from datetime import datetime
+        import os
 
-        if not channel:
-            await interaction.response.send_message("❌ Канал не найден.", ephemeral=True)
+        data = load_data()
+        message_id = data.get("message_id")
+        channel_id = int(os.getenv("STATUS_CHANNEL_ID", 0))
+
+        channel = interaction.guild.get_channel(channel_id)
+        if not channel or not message_id:
+            await interaction.response.send_message("❌ Канал или сообщение не найдены.", ephemeral=True)
             return
 
         try:
             message = await channel.fetch_message(message_id)
-            await message.edit(view=None)
-            await interaction.response.send_message("📌 Сбор завершён. Кнопки отключены.", ephemeral=True)
+            embed = await build_registration_embed(interaction.guild, interaction.user, finished=True)
+            await message.edit(embed=embed, view=None)
+
+            now = datetime.now()
+            localized_date = now.strftime("%A, %d %B %Y г. в %H:%M").capitalize()
+            text = f"**Набор завершён!**\n**Дата:** {localized_date}"
+
+            await channel.send(text)
+            await interaction.response.send_message("✅ Сбор завершён и сообщение обновлено!", ephemeral=True)
+
         except Exception as e:
             print("Ошибка при завершении сбора:", e)
             await interaction.response.send_message("❌ Не удалось завершить сбор.", ephemeral=True)
