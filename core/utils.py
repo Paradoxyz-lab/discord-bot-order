@@ -5,6 +5,11 @@ from data.roles import ROLE_PRIORITY
 from datetime import datetime
 import locale
 locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
+from babel.dates import format_date
+
+
+# Устанавливаем русскую локаль (только один раз в файле)
+locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
 
 def load_data():
     with open("database/storage.json", "r") as f:
@@ -46,13 +51,25 @@ async def format_list(guild):
         f"**📥 Доп.слоты ({len(extra)}):**\n{mention_list(extra)}"
     )
 
+
+
 async def build_registration_embed(guild, author, finished=False):
     data = load_data()
-    main_ids = data["main_list"]
+    main_ids = data.get("main_list", [])
     title = data.get("title", "Мероприятие")
-    date = data.get("date", "не указана")
+    raw_date = data.get("date", "не указана")
     max_main = data.get("max_main", 0)
 
+    # ...
+
+    try:
+        dt = datetime.strptime(raw_date, "%d.%m.%Y")
+        date = format_date(dt, format="d MMMM, y 'года'", locale="ru")
+    except:
+        date = raw_date
+
+
+    # Сбор участников
     members = []
     for uid in main_ids:
         try:
@@ -63,25 +80,29 @@ async def build_registration_embed(guild, author, finished=False):
             continue
 
     sorted_members = sorted(members, key=lambda x: -x[0])
-
-    list_text = "\n".join(
-        f"{member.mention} — {role}" for _, role, member in sorted_members
-    ) if sorted_members else "_пусто_"
-
-    header = f"🔴 ЗАВЕРШЕН 🔴\n{title}" if finished else title
-    embed = discord.Embed(title=header, color=0xFF9900)
-    info_block = (
-        f"Создал: {author.mention}\n"
-        f"Дата: {date}\n"
-        f"Роли: Без ограничений"
+    list_text = (
+        "\n".join(f"{member.mention} — {role}" for _, role, member in sorted_members)
+        if sorted_members else "_пусто_"
     )
-    embed.add_field(name="\u200b", value=info_block, inline=False)
+
+    # Заголовок
+    header = f"🔴 ЗАВЕРШЕН 🔴\n{title}" if finished else title
+
+    # Embed
+    embed = discord.Embed(title=header, color=0xFF9900)
+    embed.add_field(
+        name="\u200b",
+        value=f"**Создал:** {author.mention}\n**Дата:** {date}",
+        inline=False
+    )
     embed.add_field(
         name=f"Участники ({len(main_ids)}/{max_main})",
         value=list_text,
         inline=False
     )
+
     return embed
+
 
 
 async def update_registration_message(bot, guild, author):
