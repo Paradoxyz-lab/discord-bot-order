@@ -30,7 +30,6 @@ async def on_ready():
     except Exception as e:
         print(f"❌ Slash sync failed: {e}")
 
-# /menu — отдельно, если нужно
 @bot.tree.command(name="menu", description="Показать меню регистрации (admin only)")
 async def menu(interaction: discord.Interaction):
     if not interaction.user.guild_permissions.administrator:
@@ -39,7 +38,6 @@ async def menu(interaction: discord.Interaction):
 
     await interaction.response.send_message("Меню регистрации:", view=RegisterView(), ephemeral=True)
 
-# /list — показать текущий список (эпхемерально)
 @bot.tree.command(name="list", description="Показать текущий список участников")
 async def show_list(interaction: discord.Interaction):
     text = await format_list(interaction.guild)
@@ -64,7 +62,6 @@ async def create_event(interaction: discord.Interaction, название: str, 
         )
         return
 
-    # ⛔️ Полный сброс всех данных
     save_data({
         "main_list": [],
         "extra_list": [],
@@ -80,7 +77,7 @@ async def create_event(interaction: discord.Interaction, название: str, 
     embed = await build_registration_embed(interaction.guild, interaction.user)
     message = await interaction.channel.send(embed=embed, view=RegisterView())
 
-    # 📝 Сохраняем ID сообщения
+
     data = load_data()
     data["message_id"] = message.id
     save_data(data)
@@ -91,9 +88,8 @@ async def create_event(interaction: discord.Interaction, название: str, 
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
-    bot.add_view(RegisterView())  # ← вот здесь и происходит ошибка
+    bot.add_view(RegisterView())  
 
 
-# Запуск
 def run_bot(token: str):
     bot.run(token)

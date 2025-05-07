@@ -1,14 +1,11 @@
 {
   "main_list": [
-    "1058447486383034388"
+    "587001477504040970"
   ],
-  "extra_list": [
-    "1058447486383034388",
-    "1058447486383034388"
-  ],
-  "max_main": 32,
-  "title": "test",
-  "date": "05.07.2025 00:39",
-  "message_id": 1369398112883572897,
-  "mention_mode": null
+  "extra_list": [],
+  "max_main": 1,
+  "title": "\u043a\u043a\u043a\u043a",
+  "date": "05.05.2025 20:00",
+  "message_id": 1369727333119955027,
+  "mention_mode": "@everyone"
 }

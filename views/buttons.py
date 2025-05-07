@@ -10,10 +10,12 @@ from core.utils import (
     set_mention,
     get_priority_and_role
 )
+from babel import Locale
+from babel.dates import format_datetime
 
 class RegisterView(discord.ui.View):
     def __init__(self):
-        super().__init__(timeout=None)  # обязательно!
+        super().__init__(timeout=None)  
         self.add_item(JoinButton())
         self.add_item(JoinExtraButton())
         self.add_item(LeaveButton())
@@ -37,7 +39,10 @@ class JoinButton(discord.ui.Button):
         super().__init__(label="Присоединиться", style=discord.ButtonStyle.primary, custom_id="join_main")
 
     async def callback(self, interaction):
-        from core.utils import load_data, save_data, update_registration_message
+        from core.utils import (
+            load_data, save_data, update_registration_message, get_priority_and_role
+        )
+
         if not any(r.name.lower().startswith("каптер") for r in interaction.user.roles):
             await interaction.response.send_message("⛔ Только с ролью 'Каптер' можно участвовать.", ephemeral=True, delete_after=5)
             return
@@ -45,42 +50,50 @@ class JoinButton(discord.ui.Button):
         data = load_data()
         uid = str(interaction.user.id)
 
-        # если уже в основном — ничего не делаем
-        if uid in data["main_list"]:
-            await interaction.response.send_message("⚠️ Вы уже в основном списке.", ephemeral=True, delete_after=5)
+
+        data["main_list"] = [i for i in data["main_list"] if i != uid]
+        data["extra_list"] = [i for i in data["extra_list"] if i != uid]
+
+        max_main = data.get("max_main", 0)
+
+        if len(data["main_list"]) < max_main:
+            data["main_list"].append(uid)
+            save_data(data)
+            await update_registration_message(interaction.client, interaction.guild, interaction.user)
+            await interaction.response.send_message("✅ Вы добавлены в основной список.", ephemeral=True, delete_after=5)
             return
 
-        # если был в доп.слоте — удаляем
-        if uid in data["extra_list"]:
-            data["extra_list"].remove(uid)
 
-        # если есть место — добавляем
-        if len(data["main_list"]) < data.get("max_main", 0):
+        guild = interaction.guild
+        user_priority, _ = get_priority_and_role(interaction.user)
+
+        weakest_member = None
+        weakest_priority = 999
+
+        for i in data["main_list"]:
+            try:
+                member = await guild.fetch_member(int(i))
+                prio, _ = get_priority_and_role(member)
+                if prio < weakest_priority:
+                    weakest_priority = prio
+                    weakest_member = i
+            except:
+                continue
+
+        if weakest_member and user_priority > weakest_priority:
+
+            data["main_list"].remove(weakest_member)
+            data["extra_list"].append(weakest_member)  
             data["main_list"].append(uid)
+
             save_data(data)
             await update_registration_message(interaction.client, interaction.guild, interaction.user)
-            await interaction.response.send_message("↪️ Вы перемещены в основной список.", ephemeral=True, delete_after=5)
+
+            await interaction.response.send_message("🔁 Вы заменили участника с меньшим уровнем. Он перемещён в доп.слот.", ephemeral=True, delete_after=5)
         else:
-            await interaction.response.send_message("❌ Основной список заполнен.", ephemeral=True, delete_after=5)
+            await interaction.response.send_message("❌ Основной список заполнен. У вас недостаточный уровень для замены.", ephemeral=True, delete_after=5)
 
 
-        # если вообще не в списке
-        if len(data["main_list"]) < data.get("max_main", 0):
-            data["main_list"].append(uid)
-            save_data(data)
-            await update_registration_message(interaction.client, interaction.guild, interaction.user)
-            await interaction.response.send_message("✅ Вы добавлены в основной список.", ephemeral=True, delete_after=5)
-        else:
-            await interaction.response.send_message("❌ Основной список заполнен.", ephemeral=True, delete_after=5)
-
-
-        if len(data["main_list"]) < data.get("max_main", 0):
-            data["main_list"].append(str(interaction.user.id))
-            save_data(data)
-            await update_registration_message(interaction.client, interaction.guild, interaction.user)
-            await interaction.response.send_message("✅ Вы добавлены в основной список.", ephemeral=True, delete_after=5)
-        else:
-            await interaction.response.send_message("❌ Основной список заполнен.", ephemeral=True, delete_after=5)
 
 class JoinExtraButton(discord.ui.Button):
     def __init__(self):
@@ -88,6 +101,7 @@ class JoinExtraButton(discord.ui.Button):
 
     async def callback(self, interaction):
         from core.utils import load_data, save_data, update_registration_message
+
         if not any(r.name.lower().startswith("каптер") for r in interaction.user.roles):
             await interaction.response.send_message("⛔ Только с ролью 'Каптер' можно участвовать.", ephemeral=True, delete_after=5)
             return
@@ -95,26 +109,14 @@ class JoinExtraButton(discord.ui.Button):
         data = load_data()
         uid = str(interaction.user.id)
 
-        # если уже в доп.слоте — ничего не делаем
-        if uid in data["extra_list"]:
-            await interaction.response.send_message("⚠️ Вы уже в доп.слоте.", ephemeral=True, delete_after=5)
-            return
 
-        # если был в основном — удаляем
-        if uid in data["main_list"]:
-            data["main_list"].remove(uid)
+        data["main_list"] = [i for i in data["main_list"] if i != uid]
+        data["extra_list"] = [i for i in data["extra_list"] if i != uid]
 
-        # добавляем в доп.слот
         data["extra_list"].append(uid)
         save_data(data)
         await update_registration_message(interaction.client, interaction.guild, interaction.user)
-        await interaction.response.send_message("📘 Вы перенесены в доп.слот.", ephemeral=True, delete_after=5)
-
-        # Если нигде — просто добавляем в доп.слот
-        data["extra_list"].append(uid)
-        save_data(data)
-        await update_registration_message(interaction.client, interaction.guild, interaction.user)
-        await interaction.followup.send("✅ Вы добавлены в доп.слот.", ephemeral=True, delete_after=5)
+        await interaction.response.send_message("📘 Вы добавлены в доп.слот.", ephemeral=True, delete_after=5)
 
 
 class LeaveButton(discord.ui.Button):
@@ -161,7 +163,7 @@ class AdminPanelButton(discord.ui.Button):
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("⛔ Только для админа.", ephemeral=True)
             return
-  # если есть
+
         await interaction.response.send_message("🔧 Панель администратора:", view=AdminView(), ephemeral=True)
 
 
@@ -198,9 +200,15 @@ class ClearButton(discord.ui.Button):
         await update_registration_message(bot, interaction.guild, interaction.user)
         await interaction.response.send_message("✅ Список очищен!", ephemeral=True, delete_after=5)
 
+from discord.ui import Button
+from babel.dates import format_datetime
+from babel import Locale
+from datetime import datetime
+import os
+
 class FinishButton(discord.ui.Button):
     def __init__(self):
-        super().__init__(label="Завершить сбор", style=discord.ButtonStyle.secondary, custom_id="admin_finish") 
+        super().__init__(label="Завершить сбор", style=discord.ButtonStyle.secondary, custom_id="admin_finish")
 
     async def callback(self, interaction):
         if not interaction.user.guild_permissions.administrator:
@@ -208,8 +216,6 @@ class FinishButton(discord.ui.Button):
             return
 
         from core.utils import load_data, build_registration_embed
-        from datetime import datetime
-        import os
 
         data = load_data()
         message_id = data.get("message_id")
@@ -223,14 +229,20 @@ class FinishButton(discord.ui.Button):
         try:
             message = await channel.fetch_message(message_id)
             embed = await build_registration_embed(interaction.guild, interaction.user, finished=True)
+
+
             await message.edit(embed=embed, view=None)
 
-            now = datetime.now()
-            localized_date = now.strftime("%A, %d %B %Y г. в %H:%M").capitalize()
-            text = f"**Набор завершён!**\n**Дата:** {localized_date}"
 
-            await channel.send(text)
-            await interaction.response.send_message("✅ Сбор завершён и сообщение обновлено!", ephemeral=True)
+            now = datetime.now()
+            locale = Locale("ru")
+            localized_date = format_datetime(now, "EEEE, d MMMM y 'г.' в HH:mm", locale=locale)
+            localized_date = localized_date[0].upper() + localized_date[1:]
+
+            text = f"**Набор завершён!**\n**Дата:** {localized_date}"
+            await channel.send(text, delete_after=10)
+
+            await interaction.response.send_message("✅ Сбор завершён и сообщение обновлено!", ephemeral=True, delete_after=5)
 
         except Exception as e:
             print("Ошибка при завершении сбора:", e)
@@ -339,7 +351,6 @@ class RoleSelector(discord.ui.Select):
 class RoleSelectorView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=60)
-        # фильтруем только роли, которые не админские и не everyone
         from main import bot
         guild = bot.guilds[0]
         roles = [role for role in guild.roles if role.name != "@everyone"]

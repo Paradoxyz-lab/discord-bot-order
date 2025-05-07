@@ -45,6 +45,7 @@ def get_priority_and_role(member: discord.Member) -> tuple[int, str]:
 
     return best_priority, best_role
 
+
 def get_priority(member):
     return get_priority_and_role(member)[0]
 
@@ -65,6 +66,7 @@ async def format_list(guild):
 
 
 
+
 async def build_registration_embed(guild, author, finished=False):
     data = load_data()
     main_ids = data.get("main_list", [])
@@ -73,13 +75,31 @@ async def build_registration_embed(guild, author, finished=False):
     raw_date = data.get("date", "не указана")
     max_main = data.get("max_main", 0)
 
-    # Форматируем дату: "четверг, 1 мая 2025 г. 0:00"
+    # Форматируем дату и считаем отсчёт
     try:
         dt = datetime.strptime(raw_date, "%d.%m.%Y %H:%M")
         date = format_datetime(dt, "EEEE, d MMMM y 'г.' H:mm", locale="ru")
-        date = date[0].upper() + date[1:]  # первая буква заглавная
+        date = date[0].upper() + date[1:]
+
+        now = datetime.now()
+        delta = dt - now
+        if delta.total_seconds() < 0:
+            countdown = "⏱ Уже началось"
+        else:
+            days = delta.days
+            hours = delta.seconds // 3600
+            minutes = (delta.seconds % 3600) // 60
+            parts = []
+            if days > 0:
+                parts.append(f"{days} д.")
+            if hours > 0:
+                parts.append(f"{hours} ч.")
+            if minutes > 0 and days == 0:
+                parts.append(f"{minutes} мин.")
+            countdown = "⏳ До события: " + ", ".join(parts)
     except:
         date = raw_date
+        countdown = ""
 
     # Сбор участников
     main = []
@@ -108,7 +128,7 @@ async def build_registration_embed(guild, author, finished=False):
     # Embed
     header = f"🔴 ЗАВЕРШЕН 🔴\n{title}" if finished else title
     embed = discord.Embed(title=header, color=0xFF9900)
-    embed.add_field(name="\u200b", value=f"**Создал:** {author.mention}\n**Дата:** {date}", inline=False)
+    embed.add_field(name="\u200b", value=f"**Создал:** {author.mention}\n**Дата:** {date}\n{countdown}", inline=False)
     embed.add_field(name=f"Участники ({len(main)}/{max_main})", value=main_text, inline=False)
     embed.add_field(name=f"Доп. слоты ({len(extra)})", value=extra_text, inline=False)
     return embed
