@@ -24,6 +24,9 @@ async def on_ready():
     print(f"✅ Logged in as {bot.user}")
     bot.add_view(RegisterView())
 
+    synced = await bot.tree.sync()
+    print(f"🔧 Synced {len(synced)} глобальных команд")
+
     try:
         synced = await bot.tree.sync()
         print(f"🔧 Synced {len(synced)} глобальных команд")
@@ -84,12 +87,6 @@ async def create_event(interaction: discord.Interaction, название: str, 
     save_data(data)
 
     await interaction.response.send_message("✅ Сбор создан и опубликован!", ephemeral=True)
-
-
-@bot.event
-async def on_ready():
-    print(f"✅ Logged in as {bot.user}")
-    bot.add_view(RegisterView())  
 
 
 def run_bot(token: str):
