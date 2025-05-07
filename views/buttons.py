@@ -13,15 +13,17 @@ from core.utils import (
 
 class RegisterView(discord.ui.View):
     def __init__(self):
-        super().__init__(timeout=None)
+        super().__init__(timeout=None)  # обязательно!
         self.add_item(JoinButton())
+        self.add_item(JoinExtraButton())
         self.add_item(LeaveButton())
         self.add_item(CloseButton())
-        self.add_item(AdminButton())
+        self.add_item(AdminPanelButton())
+
 
 class AdminButton(discord.ui.Button):
     def __init__(self):
-        super().__init__(label="Управление", style=discord.ButtonStyle.primary, custom_id="admin_menu")
+        super().__init__(label="Управление", style=discord.ButtonStyle.primary, custom_id="join_main")  
 
     async def callback(self, interaction):
         if not interaction.user.guild_permissions.administrator:
@@ -32,40 +34,136 @@ class AdminButton(discord.ui.Button):
 
 class JoinButton(discord.ui.Button):
     def __init__(self):
-        super().__init__(label="Присоединиться", style=discord.ButtonStyle.success, custom_id="join")
+        super().__init__(label="Присоединиться", style=discord.ButtonStyle.primary, custom_id="join_main")
 
     async def callback(self, interaction):
-        from main import bot
-        msg = await handle_join(interaction.user, bot)
-        await update_registration_message(bot, interaction.guild, interaction.user)
-        await interaction.response.send_message(msg, ephemeral=True)
+        from core.utils import load_data, save_data, update_registration_message
+        if not any(r.name.lower().startswith("каптер") for r in interaction.user.roles):
+            await interaction.response.send_message("⛔ Только с ролью 'Каптер' можно участвовать.", ephemeral=True, delete_after=5)
+            return
+
+        data = load_data()
+        uid = str(interaction.user.id)
+
+        # если уже в основном — ничего не делаем
+        if uid in data["main_list"]:
+            await interaction.response.send_message("⚠️ Вы уже в основном списке.", ephemeral=True, delete_after=5)
+            return
+
+        # если был в доп.слоте — удаляем
+        if uid in data["extra_list"]:
+            data["extra_list"].remove(uid)
+
+        # если есть место — добавляем
+        if len(data["main_list"]) < data.get("max_main", 0):
+            data["main_list"].append(uid)
+            save_data(data)
+            await update_registration_message(interaction.client, interaction.guild, interaction.user)
+            await interaction.response.send_message("↪️ Вы перемещены в основной список.", ephemeral=True, delete_after=5)
+        else:
+            await interaction.response.send_message("❌ Основной список заполнен.", ephemeral=True, delete_after=5)
+
+
+        # если вообще не в списке
+        if len(data["main_list"]) < data.get("max_main", 0):
+            data["main_list"].append(uid)
+            save_data(data)
+            await update_registration_message(interaction.client, interaction.guild, interaction.user)
+            await interaction.response.send_message("✅ Вы добавлены в основной список.", ephemeral=True, delete_after=5)
+        else:
+            await interaction.response.send_message("❌ Основной список заполнен.", ephemeral=True, delete_after=5)
+
+
+        if len(data["main_list"]) < data.get("max_main", 0):
+            data["main_list"].append(str(interaction.user.id))
+            save_data(data)
+            await update_registration_message(interaction.client, interaction.guild, interaction.user)
+            await interaction.response.send_message("✅ Вы добавлены в основной список.", ephemeral=True, delete_after=5)
+        else:
+            await interaction.response.send_message("❌ Основной список заполнен.", ephemeral=True, delete_after=5)
+
+class JoinExtraButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Присоединиться в доп.слот", style=discord.ButtonStyle.secondary, custom_id="join_extra")
+
+    async def callback(self, interaction):
+        from core.utils import load_data, save_data, update_registration_message
+        if not any(r.name.lower().startswith("каптер") for r in interaction.user.roles):
+            await interaction.response.send_message("⛔ Только с ролью 'Каптер' можно участвовать.", ephemeral=True, delete_after=5)
+            return
+
+        data = load_data()
+        uid = str(interaction.user.id)
+
+        # если уже в доп.слоте — ничего не делаем
+        if uid in data["extra_list"]:
+            await interaction.response.send_message("⚠️ Вы уже в доп.слоте.", ephemeral=True, delete_after=5)
+            return
+
+        # если был в основном — удаляем
+        if uid in data["main_list"]:
+            data["main_list"].remove(uid)
+
+        # добавляем в доп.слот
+        data["extra_list"].append(uid)
+        save_data(data)
+        await update_registration_message(interaction.client, interaction.guild, interaction.user)
+        await interaction.response.send_message("📘 Вы перенесены в доп.слот.", ephemeral=True, delete_after=5)
+
+        # Если нигде — просто добавляем в доп.слот
+        data["extra_list"].append(uid)
+        save_data(data)
+        await update_registration_message(interaction.client, interaction.guild, interaction.user)
+        await interaction.followup.send("✅ Вы добавлены в доп.слот.", ephemeral=True, delete_after=5)
+
 
 class LeaveButton(discord.ui.Button):
     def __init__(self):
         super().__init__(label="Выйти", style=discord.ButtonStyle.danger, custom_id="leave")
 
-    async def callback(self, interaction: discord.Interaction):
-        from main import bot
-        msg = handle_leave(interaction.user)
-        await update_registration_message(bot, interaction.guild, interaction.user)
-        await interaction.response.send_message(msg, ephemeral=True)
+    async def callback(self, interaction):
+        from core.utils import load_data, save_data, update_registration_message
+        data = load_data()
+        uid = str(interaction.user.id)
+        before = len(data["main_list"]) + len(data["extra_list"])
+
+        data["main_list"] = [i for i in data["main_list"] if i != uid]
+        data["extra_list"] = [i for i in data["extra_list"] if i != uid]
+        after = len(data["main_list"]) + len(data["extra_list"])
+
+        if before == after:
+            await interaction.response.send_message("Вы и так не в списке.", ephemeral=True, delete_after=5)
+            return
+
+        save_data(data)
+        await update_registration_message(interaction.client, interaction.guild, interaction.user)
+        await interaction.response.send_message("🚪 Вы удалены из списков.", ephemeral=True, delete_after=5)
+
 
 class CloseButton(discord.ui.Button):
     def __init__(self):
-        super().__init__(label="Закрыть", style=discord.ButtonStyle.secondary, custom_id="close")
+        super().__init__(label="Закрыть", style=discord.ButtonStyle.danger, custom_id="close")
 
-    async def callback(self, interaction: discord.Interaction):
+    async def callback(self, interaction):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("⛔ Только администратор может закрыть меню.", ephemeral=True)
+            await interaction.response.send_message("⛔ Только админ может закрыть сбор.", ephemeral=True,delete_after=5)
             return
-
         try:
             await interaction.message.delete()
-        except discord.NotFound:
-            await interaction.response.send_message("Сообщение уже удалено или не найдено ❌", ephemeral=True)
-            return
+        except:
+            await interaction.response.send_message("❌ Не удалось удалить сообщение.", ephemeral=True, delete_after=5)
 
-        await interaction.response.send_message("Меню закрыто 🔒", ephemeral=True)
+class AdminPanelButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Управление", style=discord.ButtonStyle.secondary, custom_id="admin_panel")
+
+    async def callback(self, interaction):
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("⛔ Только для админа.", ephemeral=True)
+            return
+  # если есть
+        await interaction.response.send_message("🔧 Панель администратора:", view=AdminView(), ephemeral=True)
+
 
 class AdminView(discord.ui.View):
     def __init__(self):
@@ -82,7 +180,7 @@ class ClearButton(discord.ui.Button):
 
     async def callback(self, interaction):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("⛔ Только админ может очищать список.", ephemeral=True)
+            await interaction.response.send_message("⛔ Только админ может очищать список.", ephemeral=True, delete_after=5)
             return
 
         data = {
@@ -98,15 +196,15 @@ class ClearButton(discord.ui.Button):
 
         from main import bot
         await update_registration_message(bot, interaction.guild, interaction.user)
-        await interaction.response.send_message("✅ Список очищен!", ephemeral=True)
+        await interaction.response.send_message("✅ Список очищен!", ephemeral=True, delete_after=5)
 
 class FinishButton(discord.ui.Button):
     def __init__(self):
-        super().__init__(label="Завершить сбор", style=discord.ButtonStyle.secondary, custom_id="admin_finish")
+        super().__init__(label="Завершить сбор", style=discord.ButtonStyle.secondary, custom_id="admin_finish") 
 
     async def callback(self, interaction):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("⛔ Только админ может завершить сбор.", ephemeral=True)
+            await interaction.response.send_message("⛔ Только админ может завершить сбор.", ephemeral=True, delete_after=5)
             return
 
         from core.utils import load_data, build_registration_embed
@@ -119,7 +217,7 @@ class FinishButton(discord.ui.Button):
 
         channel = interaction.guild.get_channel(channel_id)
         if not channel or not message_id:
-            await interaction.response.send_message("❌ Канал или сообщение не найдены.", ephemeral=True)
+            await interaction.response.send_message("❌ Канал или сообщение не найдены.", ephemeral=True, delete_after=5)
             return
 
         try:
@@ -136,7 +234,7 @@ class FinishButton(discord.ui.Button):
 
         except Exception as e:
             print("Ошибка при завершении сбора:", e)
-            await interaction.response.send_message("❌ Не удалось завершить сбор.", ephemeral=True)
+            await interaction.response.send_message("❌ Не удалось завершить сбор.", ephemeral=True, delete_after=5)
 
 class AnnounceButton(discord.ui.Button):
     def __init__(self):
@@ -144,7 +242,7 @@ class AnnounceButton(discord.ui.Button):
 
     async def callback(self, interaction):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("⛔ Только админ может отправлять анонсы.", ephemeral=True)
+            await interaction.response.send_message("⛔ Только админ может отправлять анонсы.", ephemeral=True, delete_after=5)
             return
 
         from core.utils import load_data, get_mention
@@ -166,16 +264,15 @@ class AnnounceButton(discord.ui.Button):
         embed.set_footer(text="Нажмите /сбор чтобы зарегистрироваться")
 
         await interaction.channel.send(embed=embed, content=mention if mention else None)
-        await interaction.response.send_message("✅ Анонс отправлен!", ephemeral=True)
+        await interaction.response.send_message("✅ Анонс отправлен!", ephemeral=True, delete_after=5)
 
 
 class ExportButton(discord.ui.Button):
     def __init__(self):
         super().__init__(label="📄 Экспорт списка", style=discord.ButtonStyle.secondary, custom_id="admin_export")
-
     async def callback(self, interaction):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("⛔ Только админ может экспортировать список.", ephemeral=True)
+            await interaction.response.send_message("⛔ Только админ может экспортировать список.", ephemeral=True, delete_after=5)
             return
 
         data = load_data()
@@ -208,11 +305,11 @@ class MentionSelect(discord.ui.Select):
             discord.SelectOption(label="@роль", value="role"),
             discord.SelectOption(label="Без тега", value="none")
         ]
-        super().__init__(placeholder="Настроить тег для анонса", options=options)
+        super().__init__(placeholder="Настроить тег для анонса", options=options, custom_id="join_main")  
 
     async def callback(self, interaction: discord.Interaction):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("⛔ Только админ может менять настройки.", ephemeral=True)
+            await interaction.response.send_message("⛔ Только админ может менять настройки.", ephemeral=True, delete_after=5)
             return
 
         from core.utils import set_mention
@@ -231,13 +328,13 @@ class RoleSelector(discord.ui.Select):
             discord.SelectOption(label=role.name, value=str(role.id))
             for role in roles if not role.is_bot_managed()
         ]
-        super().__init__(placeholder="Выберите роль...", options=options)
+        super().__init__(placeholder="Выберите роль...", options=options, custom_id="join_main")
 
     async def callback(self, interaction: discord.Interaction):
         from core.utils import set_mention_role
         role_id = int(self.values[0])
         set_mention_role(role_id)
-        await interaction.response.send_message(f"✅ Будет тегаться роль: <@&{role_id}>", ephemeral=True)
+        await interaction.response.send_message(f"✅ Будет тегаться роль: <@&{role_id}>", ephemeral=True, delete_after=5)
 
 class RoleSelectorView(discord.ui.View):
     def __init__(self):

@@ -5,15 +5,27 @@ from data.roles import ROLE_PRIORITY
 from datetime import datetime
 import locale
 locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
-from babel.dates import format_date
+from babel.dates import format_datetime
 
 
 # Устанавливаем русскую локаль (только один раз в файле)
 locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
 
 def load_data():
-    with open("database/storage.json", "r") as f:
+    if not os.path.exists("database/storage.json") or os.path.getsize("database/storage.json") == 0:
+        return {
+            "main_list": [],
+            "extra_list": [],
+            "max_main": 0,
+            "title": "",
+            "date": "",
+            "message_id": None,
+            "mention_mode": None
+        }
+
+    with open("database/storage.json", "r", encoding="utf-8") as f:
         return json.load(f)
+
 
 def save_data(data):
     with open("database/storage.json", "w") as f:
@@ -56,53 +68,50 @@ async def format_list(guild):
 async def build_registration_embed(guild, author, finished=False):
     data = load_data()
     main_ids = data.get("main_list", [])
+    extra_ids = data.get("extra_list", [])
     title = data.get("title", "Мероприятие")
     raw_date = data.get("date", "не указана")
     max_main = data.get("max_main", 0)
 
-    # ...
-
+    # Форматируем дату: "четверг, 1 мая 2025 г. 0:00"
     try:
-        dt = datetime.strptime(raw_date, "%d.%m.%Y")
-        date = format_date(dt, format="d MMMM, y 'года'", locale="ru")
+        dt = datetime.strptime(raw_date, "%d.%m.%Y %H:%M")
+        date = format_datetime(dt, "EEEE, d MMMM y 'г.' H:mm", locale="ru")
+        date = date[0].upper() + date[1:]  # первая буква заглавная
     except:
         date = raw_date
 
-
     # Сбор участников
-    members = []
+    main = []
+    extra = []
     for uid in main_ids:
         try:
             member = await guild.fetch_member(int(uid))
-            priority, role_name = get_priority_and_role(member)
-            members.append((priority, role_name, member))
+            prio, role = get_priority_and_role(member)
+            main.append((prio, role, member))
+        except:
+            continue
+    for uid in extra_ids:
+        try:
+            member = await guild.fetch_member(int(uid))
+            prio, role = get_priority_and_role(member)
+            extra.append((prio, role, member))
         except:
             continue
 
-    sorted_members = sorted(members, key=lambda x: -x[0])
-    list_text = (
-        "\n".join(f"{member.mention} — {role}" for _, role, member in sorted_members)
-        if sorted_members else "_пусто_"
-    )
+    main.sort(key=lambda x: -x[0])
+    extra.sort(key=lambda x: -x[0])
 
-    # Заголовок
-    header = f"🔴 ЗАВЕРШЕН 🔴\n{title}" if finished else title
+    main_text = "\n".join(f"{m.mention} — {r}" for _, r, m in main) if main else "_пусто_"
+    extra_text = "\n".join(f"{m.mention} — {r}" for _, r, m in extra) if extra else "_пусто_"
 
     # Embed
+    header = f"🔴 ЗАВЕРШЕН 🔴\n{title}" if finished else title
     embed = discord.Embed(title=header, color=0xFF9900)
-    embed.add_field(
-        name="\u200b",
-        value=f"**Создал:** {author.mention}\n**Дата:** {date}",
-        inline=False
-    )
-    embed.add_field(
-        name=f"Участники ({len(main_ids)}/{max_main})",
-        value=list_text,
-        inline=False
-    )
-
+    embed.add_field(name="\u200b", value=f"**Создал:** {author.mention}\n**Дата:** {date}", inline=False)
+    embed.add_field(name=f"Участники ({len(main)}/{max_main})", value=main_text, inline=False)
+    embed.add_field(name=f"Доп. слоты ({len(extra)})", value=extra_text, inline=False)
     return embed
-
 
 
 async def update_registration_message(bot, guild, author):
