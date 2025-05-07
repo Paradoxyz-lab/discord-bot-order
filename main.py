@@ -26,9 +26,10 @@ async def on_ready():
 
     try:
         synced = await bot.tree.sync()
-        print(f"🔧 Synced {len(synced)} slash command(s)")
+        print(f"🔧 Synced {len(synced)} глобальных команд")
     except Exception as e:
-        print(f"❌ Slash sync failed: {e}")
+        print(f"❌ Не удалось синхронизировать команды: {e}")
+
 
 @bot.tree.command(name="menu", description="Показать меню регистрации (admin only)")
 async def menu(interaction: discord.Interaction):
