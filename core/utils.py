@@ -8,7 +8,6 @@ locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
 from babel.dates import format_datetime
 
 
-# Устанавливаем русскую локаль (только один раз в файле)
 locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
 
 def load_data():
@@ -75,7 +74,7 @@ async def build_registration_embed(guild, author, finished=False):
     raw_date = data.get("date", "не указана")
     max_main = data.get("max_main", 0)
 
-    # Форматируем дату и считаем отсчёт
+
     try:
         dt = datetime.strptime(raw_date, "%d.%m.%Y %H:%M")
         date = format_datetime(dt, "EEEE, d MMMM y 'г.' H:mm", locale="ru")
@@ -101,7 +100,7 @@ async def build_registration_embed(guild, author, finished=False):
         date = raw_date
         countdown = ""
 
-    # Сбор участников
+
     main = []
     extra = []
     for uid in main_ids:
@@ -125,7 +124,7 @@ async def build_registration_embed(guild, author, finished=False):
     main_text = "\n".join(f"{m.mention} — {r}" for _, r, m in main) if main else "_пусто_"
     extra_text = "\n".join(f"{m.mention} — {r}" for _, r, m in extra) if extra else "_пусто_"
 
-    # Embed
+
     header = f"🔴 ЗАВЕРШЕН 🔴\n{title}" if finished else title
     embed = discord.Embed(title=header, color=0xFF9900)
     embed.add_field(name="\u200b", value=f"**Создал:** {author.mention}\n**Дата:** {date}\n{countdown}", inline=False)
