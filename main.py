@@ -85,7 +85,7 @@ async def create_event(interaction: discord.Interaction, название: str, 
 
     # Создаём ветку под сообщением
     thread = await message.create_thread(
-        name=f"📒 Лог — {название}",
+        name=f"📒 Плюсы — {название}",
         auto_archive_duration=1440  # 24 часа
     )
 
