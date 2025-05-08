@@ -43,10 +43,6 @@ class JoinButton(discord.ui.Button):
             load_data, save_data, update_registration_message, get_priority_and_role
         )
 
-        if not any(r.name.lower().startswith("каптер") for r in interaction.user.roles):
-            await interaction.response.send_message("⛔ Только с ролью 'Каптер' можно участвовать.", ephemeral=True, delete_after=5)
-            return
-
         data = load_data()
         uid = str(interaction.user.id)
 
@@ -101,10 +97,6 @@ class JoinExtraButton(discord.ui.Button):
 
     async def callback(self, interaction):
         from core.utils import load_data, save_data, update_registration_message
-
-        if not any(r.name.lower().startswith("каптер") for r in interaction.user.roles):
-            await interaction.response.send_message("⛔ Только с ролью 'Каптер' можно участвовать.", ephemeral=True, delete_after=5)
-            return
 
         data = load_data()
         uid = str(interaction.user.id)
