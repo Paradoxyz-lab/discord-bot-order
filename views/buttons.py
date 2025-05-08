@@ -48,19 +48,19 @@ class JoinButton(discord.ui.Button):
         data = load_data()
         uid = str(interaction.user.id)
 
-        # Удаляем пользователя из обоих списков (без дубликатов)
+
         data["main_list"] = [i for i in data["main_list"] if i != uid]
         data["extra_list"] = [i for i in data["extra_list"] if i != uid]
 
         max_main = data.get("max_main", 0)
 
-        # Попробуем просто добавить
+
         if len(data["main_list"]) < max_main:
             data["main_list"].append(uid)
             save_data(data)
             await update_registration_message(interaction.client, interaction.guild, interaction.user)
 
-            # лог в тред
+
             thread = interaction.guild.get_thread(data.get("thread_id"))
             if thread:
                 await thread.send(f"➕ {interaction.user.mention} присоединился к основному списку.")
@@ -68,7 +68,6 @@ class JoinButton(discord.ui.Button):
             await interaction.response.send_message("✅ Вы добавлены в основной список.", ephemeral=True, delete_after=5)
             return
 
-        # Список заполнен — проверим возможность замены
         guild = interaction.guild
         user_priority, _ = get_priority_and_role(interaction.user)
 
@@ -86,7 +85,7 @@ class JoinButton(discord.ui.Button):
                 continue
 
         if weakest_member and user_priority > weakest_priority:
-            # Замена: перемещаем слабого в доп.слот
+
             data["main_list"].remove(weakest_member)
             data["extra_list"].append(weakest_member)
             data["main_list"].append(uid)
@@ -127,7 +126,7 @@ class JoinExtraButton(discord.ui.Button):
         save_data(data)
         await update_registration_message(interaction.client, interaction.guild, interaction.user)
 
-        # лог в тред
+
         thread = interaction.guild.get_thread(data.get("thread_id"))
         if thread:
             await thread.send(f"📘 {interaction.user.mention} добавлен в доп.слот.")
@@ -361,7 +360,6 @@ class MentionSelect(discord.ui.Select):
         value = self.values[0]
         set_mention(value)
 
-        # Удаляем админ-панель
         await interaction.message.edit(view=None)
 
         if value == "role":

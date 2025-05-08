@@ -67,7 +67,7 @@ async def create_event(interaction: discord.Interaction, название: str, 
         )
         return
 
-    # Сохраняем начальные данные
+
     save_data({
         "main_list": [],
         "extra_list": [],
@@ -79,19 +79,19 @@ async def create_event(interaction: discord.Interaction, название: str, 
         "mention_mode": None
     })
 
-    # Создаём embed и сообщение
+
     embed = await build_registration_embed(interaction.guild, interaction.user)
     message = await interaction.channel.send(embed=embed, view=RegisterView())
 
-    # Создаём ветку под сообщением
+
     thread = await message.create_thread(
         name=f"📒 Плюсы — {название}",
-        auto_archive_duration=1440  # 24 часа
+        auto_archive_duration=1440  
     )
 
-    # Обновляем данные
     data = load_data()
     data["message_id"] = message.id
+    data["channel_id"] = message.channel.id
     data["thread_id"] = thread.id
     save_data(data)
 

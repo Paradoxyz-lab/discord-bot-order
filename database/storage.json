@@ -1,11 +1,13 @@
 {
   "main_list": [
-    "587001477504040970"
+    "1058447486383034388"
   ],
   "extra_list": [],
-  "max_main": 1,
-  "title": "\u043a\u043a\u043a\u043a",
-  "date": "05.05.2025 20:00",
-  "message_id": 1369727333119955027,
-  "mention_mode": "@everyone"
+  "max_main": 32,
+  "title": "Test",
+  "date": "08.05.2025 23:00",
+  "message_id": 1370085299002019961,
+  "thread_id": 1370085299002019961,
+  "mention_mode": null,
+  "channel_id": 1369758133936984237
 }

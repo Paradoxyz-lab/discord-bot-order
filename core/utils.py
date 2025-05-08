@@ -135,7 +135,7 @@ async def build_registration_embed(guild, author, finished=False):
 
 async def update_registration_message(bot, guild, author):
     data = load_data()
-    channel_id = int(os.getenv("STATUS_CHANNEL_ID", 0))
+    channel_id = data.get("channel_id")  
     message_id = data.get("message_id")
 
     if not channel_id or not message_id:
@@ -143,6 +143,7 @@ async def update_registration_message(bot, guild, author):
 
     channel = guild.get_channel(channel_id)
     if channel is None:
+        print("❌ Канал не найден по ID")
         return
 
     try:
@@ -151,6 +152,7 @@ async def update_registration_message(bot, guild, author):
         await message.edit(embed=embed)
     except Exception as e:
         print("Ошибка обновления embed:", e)
+
 
 async def update_status_channel(bot: discord.Client, guild: discord.Guild):
     pass
