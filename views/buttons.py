@@ -48,20 +48,27 @@ class JoinButton(discord.ui.Button):
         data = load_data()
         uid = str(interaction.user.id)
 
-
+        # Удаляем пользователя из обоих списков (без дубликатов)
         data["main_list"] = [i for i in data["main_list"] if i != uid]
         data["extra_list"] = [i for i in data["extra_list"] if i != uid]
 
         max_main = data.get("max_main", 0)
 
+        # Попробуем просто добавить
         if len(data["main_list"]) < max_main:
             data["main_list"].append(uid)
             save_data(data)
             await update_registration_message(interaction.client, interaction.guild, interaction.user)
+
+            # лог в тред
+            thread = interaction.guild.get_thread(data.get("thread_id"))
+            if thread:
+                await thread.send(f"➕ {interaction.user.mention} присоединился к основному списку.")
+
             await interaction.response.send_message("✅ Вы добавлены в основной список.", ephemeral=True, delete_after=5)
             return
 
-
+        # Список заполнен — проверим возможность замены
         guild = interaction.guild
         user_priority, _ = get_priority_and_role(interaction.user)
 
@@ -79,13 +86,21 @@ class JoinButton(discord.ui.Button):
                 continue
 
         if weakest_member and user_priority > weakest_priority:
-
+            # Замена: перемещаем слабого в доп.слот
             data["main_list"].remove(weakest_member)
-            data["extra_list"].append(weakest_member)  
+            data["extra_list"].append(weakest_member)
             data["main_list"].append(uid)
 
             save_data(data)
             await update_registration_message(interaction.client, interaction.guild, interaction.user)
+
+            thread = interaction.guild.get_thread(data.get("thread_id"))
+            if thread:
+                replaced = await guild.fetch_member(int(weakest_member))
+                await thread.send(
+                    f"🔁 {interaction.user.mention} заменил {replaced.mention} в основном списке. "
+                    f"{replaced.mention} перемещён в доп.слот."
+                )
 
             await interaction.response.send_message("🔁 Вы заменили участника с меньшим уровнем. Он перемещён в доп.слот.", ephemeral=True, delete_after=5)
         else:
@@ -107,9 +122,16 @@ class JoinExtraButton(discord.ui.Button):
         data["main_list"] = [i for i in data["main_list"] if i != uid]
         data["extra_list"] = [i for i in data["extra_list"] if i != uid]
 
+
         data["extra_list"].append(uid)
         save_data(data)
         await update_registration_message(interaction.client, interaction.guild, interaction.user)
+
+        # лог в тред
+        thread = interaction.guild.get_thread(data.get("thread_id"))
+        if thread:
+            await thread.send(f"📘 {interaction.user.mention} добавлен в доп.слот.")
+
         await interaction.response.send_message("📘 Вы добавлены в доп.слот.", ephemeral=True, delete_after=5)
 
 
@@ -119,20 +141,27 @@ class LeaveButton(discord.ui.Button):
 
     async def callback(self, interaction):
         from core.utils import load_data, save_data, update_registration_message
+
         data = load_data()
         uid = str(interaction.user.id)
-        before = len(data["main_list"]) + len(data["extra_list"])
+
+        was_in_main = uid in data["main_list"]
+        was_in_extra = uid in data["extra_list"]
 
         data["main_list"] = [i for i in data["main_list"] if i != uid]
         data["extra_list"] = [i for i in data["extra_list"] if i != uid]
-        after = len(data["main_list"]) + len(data["extra_list"])
 
-        if before == after:
-            await interaction.response.send_message("Вы и так не в списке.", ephemeral=True, delete_after=5)
+        if not was_in_main and not was_in_extra:
+            await interaction.response.send_message("⚠️ Вы и так не в списках.", ephemeral=True, delete_after=5)
             return
 
         save_data(data)
         await update_registration_message(interaction.client, interaction.guild, interaction.user)
+
+        thread = interaction.guild.get_thread(data.get("thread_id"))
+        if thread:
+            await thread.send(f"🚪 {interaction.user.mention} вышел из события.")
+
         await interaction.response.send_message("🚪 Вы удалены из списков.", ephemeral=True, delete_after=5)
 
 
@@ -198,7 +227,6 @@ class ClearButton(discord.ui.Button):
 
         await update_registration_message(bot, interaction.guild, interaction.user)
 
-        # Удаляем админ-панель
         await interaction.message.edit(view=None)
 
         await interaction.response.send_message("✅ Список очищен!", ephemeral=True, delete_after=5)

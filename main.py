@@ -50,22 +50,24 @@ async def show_list(interaction: discord.Interaction):
 @bot.tree.command(name="сбор", description="Создать мероприятие с кнопками и лимитом")
 @app_commands.describe(
     название="Название мероприятия",
-    дата="Дата проведения",
+    дата="Дата проведения (дд.мм.гггг чч:мм)",
     слоты="Максимум участников"
 )
 async def create_event(interaction: discord.Interaction, название: str, дата: str, слоты: int):
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("⛔ Только админ может создать сбор.", ephemeral=True)
         return
+
     try:
         datetime.strptime(дата, "%d.%m.%Y %H:%M")
     except ValueError:
         await interaction.response.send_message(
-            "❌ Неверный формат даты. Используй формат: `дд.мм.гггг чч:мм` (например, 05.05.2025 18:30)",
+            "❌ Неверный формат даты. Используй: `дд.мм.гггг чч:мм` (например, 05.05.2025 18:30)",
             ephemeral=True
         )
         return
 
+    # Сохраняем начальные данные
     save_data({
         "main_list": [],
         "extra_list": [],
@@ -73,20 +75,27 @@ async def create_event(interaction: discord.Interaction, название: str, 
         "title": название,
         "date": дата,
         "message_id": None,
+        "thread_id": None,
         "mention_mode": None
     })
 
-    from core.utils import build_registration_embed
-
+    # Создаём embed и сообщение
     embed = await build_registration_embed(interaction.guild, interaction.user)
     message = await interaction.channel.send(embed=embed, view=RegisterView())
 
+    # Создаём ветку под сообщением
+    thread = await message.create_thread(
+        name=f"📒 Лог — {название}",
+        auto_archive_duration=1440  # 24 часа
+    )
 
+    # Обновляем данные
     data = load_data()
     data["message_id"] = message.id
+    data["thread_id"] = thread.id
     save_data(data)
 
-    await interaction.response.send_message("✅ Сбор создан и опубликован!", ephemeral=True)
+    await interaction.response.send_message("✅ Сбор создан, лог доступен в ветке.", ephemeral=True)
 
 
 def run_bot(token: str):
