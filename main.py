@@ -14,7 +14,7 @@ from core.utils import (
 )
 
 intents = discord.Intents.default()
-intents.members = True
+intents.members = True               
 intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -74,10 +74,13 @@ async def create_event(interaction: discord.Interaction, название: str, 
         "max_main": слоты,
         "title": название,
         "date": дата,
+        "author_id": interaction.user.id,  # ← сохраняем автора
         "message_id": None,
+        "channel_id": interaction.channel.id,
         "thread_id": None,
         "mention_mode": None
     })
+
 
 
     embed = await build_registration_embed(interaction.guild, interaction.user)

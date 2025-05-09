@@ -5,9 +5,10 @@
   "extra_list": [],
   "max_main": 32,
   "title": "Test",
-  "date": "08.05.2025 23:00",
-  "message_id": 1370085299002019961,
-  "thread_id": 1370085299002019961,
-  "mention_mode": null,
-  "channel_id": 1369758133936984237
+  "date": "10.05.2025 01:00",
+  "author_id": 1058447486383034388,
+  "message_id": 1370479896455020574,
+  "channel_id": 1368278891394760816,
+  "thread_id": 1370479896455020574,
+  "mention_mode": null
 }

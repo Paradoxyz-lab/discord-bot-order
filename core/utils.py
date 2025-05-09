@@ -66,8 +66,10 @@ async def format_list(guild):
 
 
 
-async def build_registration_embed(guild, author, finished=False):
+async def build_registration_embed(guild, finished=False):
     data = load_data()
+    author_id = data.get("author_id")
+    author = guild.get_member(author_id) or await guild.fetch_member(author_id)
     main_ids = data.get("main_list", [])
     extra_ids = data.get("extra_list", [])
     title = data.get("title", "Мероприятие")
@@ -105,14 +107,26 @@ async def build_registration_embed(guild, author, finished=False):
     extra = []
     for uid in main_ids:
         try:
-            member = await guild.fetch_member(int(uid))
+            member = guild.get_member(int(uid))
+            if not member:
+                try:
+                    member = await guild.fetch_member(int(uid))
+                except:
+                    continue
+
             prio, role = get_priority_and_role(member)
             main.append((prio, role, member))
         except:
             continue
     for uid in extra_ids:
         try:
-            member = await guild.fetch_member(int(uid))
+            member = guild.get_member(int(uid))
+            if not member:
+                try:
+                    member = await guild.fetch_member(int(uid))
+                except:
+                    continue
+
             prio, role = get_priority_and_role(member)
             extra.append((prio, role, member))
         except:
@@ -148,7 +162,11 @@ async def update_registration_message(bot, guild, author):
 
     try:
         message = await channel.fetch_message(message_id)
+        author = guild.get_member(data["author_id"])  # кэш
+        if not author:
+            author = await guild.fetch_member(data["author_id"])  # fallback
         embed = await build_registration_embed(guild, author)
+
         await message.edit(embed=embed)
     except Exception as e:
         print("Ошибка обновления embed:", e)

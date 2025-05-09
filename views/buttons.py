@@ -48,6 +48,8 @@ class JoinButton(discord.ui.Button):
         data = load_data()
         uid = str(interaction.user.id)
 
+        thread_id = data.get("thread_id")
+
 
         data["main_list"] = [i for i in data["main_list"] if i != uid]
         data["extra_list"] = [i for i in data["extra_list"] if i != uid]
@@ -63,7 +65,10 @@ class JoinButton(discord.ui.Button):
 
             thread = interaction.guild.get_thread(data.get("thread_id"))
             if thread:
-                await thread.send(f"➕ {interaction.user.mention} присоединился к основному списку.")
+                try:
+                    await thread.send(f"➕ {interaction.user.mention} присоединился к основному списку.", silent=True)
+                except Exception as e:
+                    print(f"⚠️ Не удалось отправить лог: {e}")
 
             await interaction.response.send_message("✅ Вы добавлены в основной список.", ephemeral=True, delete_after=5)
             return
@@ -98,7 +103,8 @@ class JoinButton(discord.ui.Button):
                 replaced = await guild.fetch_member(int(weakest_member))
                 await thread.send(
                     f"🔁 {interaction.user.mention} заменил {replaced.mention} в основном списке. "
-                    f"{replaced.mention} перемещён в доп.слот."
+                    f"{replaced.mention} перемещён в доп.слот.",
+                    silent=True
                 )
 
             await interaction.response.send_message("🔁 Вы заменили участника с меньшим уровнем. Он перемещён в доп.слот.", ephemeral=True, delete_after=5)
@@ -129,7 +135,11 @@ class JoinExtraButton(discord.ui.Button):
 
         thread = interaction.guild.get_thread(data.get("thread_id"))
         if thread:
-            await thread.send(f"📘 {interaction.user.mention} добавлен в доп.слот.")
+            try:
+                await thread.send(f"📘 {interaction.user.mention} записался в доп.слот.", silent=True)
+            except Exception as e:
+                print(f"⚠️ Не удалось отправить лог: {e}")
+
 
         await interaction.response.send_message("📘 Вы добавлены в доп.слот.", ephemeral=True, delete_after=5)
 
@@ -159,7 +169,11 @@ class LeaveButton(discord.ui.Button):
 
         thread = interaction.guild.get_thread(data.get("thread_id"))
         if thread:
-            await thread.send(f"🚪 {interaction.user.mention} вышел из события.")
+            try:
+                await thread.send(f"🚪 {interaction.user.mention} вышел из события.", silent=True)
+            except Exception as e:
+                print(f"⚠️ Не удалось отправить лог: {e}")
+
 
         await interaction.response.send_message("🚪 Вы удалены из списков.", ephemeral=True, delete_after=5)
 
@@ -229,6 +243,15 @@ class ClearButton(discord.ui.Button):
         await interaction.message.edit(view=None)
 
         await interaction.response.send_message("✅ Список очищен!", ephemeral=True, delete_after=5)
+        thread_id = data.get("thread_id")
+        thread = interaction.guild.get_thread(thread_id)
+
+        if thread:
+            try:
+                await thread.send("🧹 Список участников был полностью очищен.", silent=True)
+            except Exception as e:
+                print(f"⚠️ Не удалось отправить лог: {e}")
+
 
 
 class FinishButton(discord.ui.Button):
@@ -323,7 +346,13 @@ class ExportButton(discord.ui.Button):
         guild = interaction.guild
         for uid in main_ids:
             try:
-                member = await guild.fetch_member(int(uid))
+                member = guild.get_member(int(uid))
+                if not member:
+                    try:
+                        member = await guild.fetch_member(int(uid))
+                    except:
+                        continue
+
                 priority, role = get_priority_and_role(member)
                 lines.append((priority, f"{member.name}#{member.discriminator} — {role}"))
             except:
